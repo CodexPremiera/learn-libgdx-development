@@ -1,6 +1,7 @@
 package com.practice.mario_bros.screens;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -16,13 +17,14 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.practice.mario_bros.MarioBros;
 import com.practice.mario_bros.Scenes.Hud;
+import com.practice.mario_bros.Sprites.Mario;
 
 public class PlayScreen implements Screen {
     /* GAME ATTRIBUTES */
-    private MarioBros game;
-    private OrthographicCamera gameCam;
-    private Viewport gamePort;
-    private Hud hud;
+    private final MarioBros game;
+    private final OrthographicCamera gameCam;
+    private final Viewport gamePort;
+    private final Hud hud;
 
     /* TILED MAP ATTRIBUTES */
     private TmxMapLoader mapLoader;
@@ -32,8 +34,19 @@ public class PlayScreen implements Screen {
     /* BOX 2D ATTRIBUTES */
     private World world;
     private Box2DDebugRenderer box2DRenderer;
+    private Mario mario;
 
+    /* GAME CONSTANTS */
+    private static final String MAP_FILE = "world.tmx";
+    private static final float WORLD_GRAVITY = -10f;
+    private static final float JUMP_IMPULSE = 4f;
+    private static final float MOVE_IMPULSE = 0.1f;
+    private static final float MAX_SPEED = 2;
+    private static final float TIME_STEP = 1/60f;
+    private static final int VELOCITY_ITERATIONS = 6;
+    private static final int POSITION_ITERATIONS = 2;
 
+    /* CONSTRUCTOR */
     public PlayScreen(MarioBros game) {
         this.game = game;
 
@@ -41,24 +54,45 @@ public class PlayScreen implements Screen {
         gameCam = new OrthographicCamera();
 
         // create a FitViewport to maintain virtual aspect ratio despite screen size
-        gamePort = new FitViewport((float) MarioBros.V_WIDTH / 2, (float) MarioBros.V_HEIGHT / 2, gameCam);
+        gamePort = new FitViewport((float) MarioBros.V_WIDTH / MarioBros.PPM / 2, (float) MarioBros.V_HEIGHT / MarioBros.PPM / 2, gameCam);
 
         // create the hud for the game
         hud = new Hud(game.spriteBatch);
 
-        // load the map and setup the renderer
+        // load the map and set up the renderer
         mapLoader = new TmxMapLoader();
-        map = mapLoader.load("world.tmx");
-        renderer = new OrthogonalTiledMapRenderer(map);
+        try {
+            map = mapLoader.load(MAP_FILE);
+        } catch (Exception e) {
+            System.out.println("Error loading map: " + e.getMessage());
+            return;
+        }
+        renderer = new OrthogonalTiledMapRenderer(map, 1 / MarioBros.PPM);
 
         // set the camera to the center of the viewport
         gameCam.position.set(gamePort.getWorldWidth() / 2, gamePort.getWorldHeight() / 2, 0);
 
         // create the box2d world
-        world = new World(new Vector2(0, 0), true);
+        world = new World(new Vector2(0, WORLD_GRAVITY), true);
         box2DRenderer = new Box2DDebugRenderer();
+        mario = new Mario(world);
 
         // add bodies and fixtures to the world
+        createBodiesAndFixtures();
+    }
+
+    private void loadMap() {
+        this.mapLoader = new TmxMapLoader();
+        try {
+            this.map = this.mapLoader.load(MAP_FILE);
+        } catch (Exception e) {
+            System.out.println("Error loading map: " + e.getMessage());
+            return;
+        }
+        this.renderer = new OrthogonalTiledMapRenderer(this.map, 1 / MarioBros.PPM);
+    }
+
+    private void createBodiesAndFixtures() {
         BodyDef bodyDef = new BodyDef();
         PolygonShape polygonShape = new PolygonShape();
         FixtureDef fixtureDef = new FixtureDef();
@@ -70,11 +104,13 @@ public class PlayScreen implements Screen {
                 Rectangle rectangle = ((RectangleMapObject) object).getRectangle();
 
                 bodyDef.type = BodyDef.BodyType.StaticBody;
-                bodyDef.position.set(rectangle.getX() + rectangle.getWidth() / 2, rectangle.getY() + rectangle.getHeight() / 2);
+                bodyDef.position.set(
+                        (rectangle.getX() + rectangle.getWidth() / 2) / MarioBros.PPM,
+                        (rectangle.getY() + rectangle.getHeight() / 2) / MarioBros.PPM);
 
                 body = world.createBody(bodyDef);
 
-                polygonShape.setAsBox(rectangle.getWidth() / 2, rectangle.getHeight() / 2);
+                polygonShape.setAsBox(rectangle.getWidth() / (2 * MarioBros.PPM), rectangle.getHeight() / (2 * MarioBros.PPM));
                 fixtureDef.shape = polygonShape;
                 body.createFixture(fixtureDef);
             }
@@ -87,14 +123,39 @@ public class PlayScreen implements Screen {
     }
 
     public void handleInput(float dt) {
-        if (Gdx.input.isTouched()) {
-            gameCam.position.x += 100 * dt;
-        }
+        handleJump();
+        handleMoveLeft();
+        handleMoveRight();
     }
+
+    private void handleJump() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.W))
+            mario.body.applyLinearImpulse(new Vector2(0, JUMP_IMPULSE), mario.body.getWorldCenter(), true);
+    }
+
+    private void handleMoveLeft() {
+        if (Gdx.input.isKeyPressed(Input.Keys.A) && mario.body.getLinearVelocity().x >= -MAX_SPEED)
+            mario.body.applyLinearImpulse(new Vector2(-MOVE_IMPULSE, 0), mario.body.getWorldCenter(), true);
+    }
+
+    private void handleMoveRight() {
+        if (Gdx.input.isKeyPressed(Input.Keys.D) && mario.body.getLinearVelocity().x <= MAX_SPEED)
+            mario.body.applyLinearImpulse(new Vector2(MOVE_IMPULSE, 0), mario.body.getWorldCenter(), true);
+    }
+
 
     public void update(float dt) {
         handleInput(dt);
+
+        world.step(TIME_STEP, VELOCITY_ITERATIONS, POSITION_ITERATIONS);
+
+        // update mario's position
+        gameCam.position.x = mario.body.getPosition().x;
+
+        // update game cam to correct coordinates after changes
         gameCam.update();
+
+        // tell the renderer to draw only what the camera can see in the game world
         renderer.setView(gameCam);
     }
 
@@ -103,16 +164,18 @@ public class PlayScreen implements Screen {
         gamePort.update(width, height);
     }
 
+    private void clearScreen() {
+        Gdx.gl.glClearColor(0, 0, 0, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+    }
+
     @Override
     public void render(float delta) {
         // separate the update logic from the render logic
         update(delta);
 
-        // clear the screen with a black color
-        Gdx.gl.glClearColor(0, 0, 0, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
         // render game map
+        clearScreen();
         renderer.render();
 
         // render box2d world
@@ -140,6 +203,9 @@ public class PlayScreen implements Screen {
 
     @Override
     public void dispose() {
-
+        map.dispose();
+        renderer.dispose();
+        world.dispose();
+        box2DRenderer.dispose();
     }
 }

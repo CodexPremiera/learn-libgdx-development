@@ -159,12 +159,13 @@ public class PlayScreen implements Screen {
         // render box2d world
         box2DRenderer.render(world, gameCam.combined);
 
-        // draw the texture at the center of the screen
+        // draw the player texture at the center of the screen
         game.spriteBatch.setProjectionMatrix(gameCam.combined);
         game.spriteBatch.begin();
         player.draw(game.spriteBatch);
         game.spriteBatch.end();
 
+        // follow mario with the camera
         game.spriteBatch.setProjectionMatrix(hud.stage.getCamera().combined);
         hud.stage.draw();
     }

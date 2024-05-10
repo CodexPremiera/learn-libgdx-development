@@ -18,6 +18,7 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 import com.practice.mario_bros.MarioBros;
 import com.practice.mario_bros.Scenes.Hud;
 import com.practice.mario_bros.Sprites.Mario;
+import com.practice.mario_bros.Tools.B2WorldCreator;
 
 public class PlayScreen implements Screen {
     /* GAME ATTRIBUTES */
@@ -78,7 +79,7 @@ public class PlayScreen implements Screen {
         mario = new Mario(world);
 
         // add bodies and fixtures to the world
-        createBodiesAndFixtures();
+        new B2WorldCreator(world, map);
     }
 
     private void loadMap() {
@@ -90,31 +91,6 @@ public class PlayScreen implements Screen {
             return;
         }
         this.renderer = new OrthogonalTiledMapRenderer(this.map, 1 / MarioBros.PPM);
-    }
-
-    private void createBodiesAndFixtures() {
-        BodyDef bodyDef = new BodyDef();
-        PolygonShape polygonShape = new PolygonShape();
-        FixtureDef fixtureDef = new FixtureDef();
-        Body body;
-
-        // create the ground, pipes, bricks, coins bodies/fixtures
-        for (int layerIndex = 2; layerIndex <= 5; layerIndex++) {
-            for (MapObject object : map.getLayers().get(layerIndex).getObjects().getByType(RectangleMapObject.class)) {
-                Rectangle rectangle = ((RectangleMapObject) object).getRectangle();
-
-                bodyDef.type = BodyDef.BodyType.StaticBody;
-                bodyDef.position.set(
-                        (rectangle.getX() + rectangle.getWidth() / 2) / MarioBros.PPM,
-                        (rectangle.getY() + rectangle.getHeight() / 2) / MarioBros.PPM);
-
-                body = world.createBody(bodyDef);
-
-                polygonShape.setAsBox(rectangle.getWidth() / (2 * MarioBros.PPM), rectangle.getHeight() / (2 * MarioBros.PPM));
-                fixtureDef.shape = polygonShape;
-                body.createFixture(fixtureDef);
-            }
-        }
     }
 
     @Override
@@ -207,5 +183,6 @@ public class PlayScreen implements Screen {
         renderer.dispose();
         world.dispose();
         box2DRenderer.dispose();
+        hud.dispose();
     }
 }

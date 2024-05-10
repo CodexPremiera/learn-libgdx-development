@@ -5,12 +5,10 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.maps.MapObject;
-import com.badlogic.gdx.maps.objects.RectangleMapObject;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
-import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.*;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -23,6 +21,9 @@ import com.practice.mario_bros.Tools.B2WorldCreator;
 public class PlayScreen implements Screen {
     /* GAME ATTRIBUTES */
     private final MarioBros game;
+    private TextureAtlas atlas;
+
+    /* CAMERA ATTRIBUTES */
     private final OrthographicCamera gameCam;
     private final Viewport gamePort;
     private final Hud hud;
@@ -35,7 +36,7 @@ public class PlayScreen implements Screen {
     /* BOX 2D ATTRIBUTES */
     private World world;
     private Box2DDebugRenderer box2DRenderer;
-    private Mario mario;
+    private Mario player;
 
     /* GAME CONSTANTS */
     private static final String MAP_FILE = "world.tmx";
@@ -50,6 +51,7 @@ public class PlayScreen implements Screen {
     /* CONSTRUCTOR */
     public PlayScreen(MarioBros game) {
         this.game = game;
+        this.atlas = new TextureAtlas("sprites/mario_sprites.txt");
 
         // create the camera used to follow mario through the game world
         gameCam = new OrthographicCamera();
@@ -76,10 +78,10 @@ public class PlayScreen implements Screen {
         // create the box2d world
         world = new World(new Vector2(0, WORLD_GRAVITY), true);
         box2DRenderer = new Box2DDebugRenderer();
-        mario = new Mario(world);
 
         // add bodies and fixtures to the world
         new B2WorldCreator(world, map);
+        this.player = new Mario(world, this);
     }
 
     private void loadMap() {
@@ -91,6 +93,10 @@ public class PlayScreen implements Screen {
             return;
         }
         this.renderer = new OrthogonalTiledMapRenderer(this.map, 1 / MarioBros.PPM);
+    }
+
+    public TextureAtlas getAtlas() {
+        return atlas;
     }
 
     @Override
@@ -106,17 +112,17 @@ public class PlayScreen implements Screen {
 
     private void handleJump() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.W))
-            mario.body.applyLinearImpulse(new Vector2(0, JUMP_IMPULSE), mario.body.getWorldCenter(), true);
+            player.body.applyLinearImpulse(new Vector2(0, JUMP_IMPULSE), player.body.getWorldCenter(), true);
     }
 
     private void handleMoveLeft() {
-        if (Gdx.input.isKeyPressed(Input.Keys.A) && mario.body.getLinearVelocity().x >= -MAX_SPEED)
-            mario.body.applyLinearImpulse(new Vector2(-MOVE_IMPULSE, 0), mario.body.getWorldCenter(), true);
+        if (Gdx.input.isKeyPressed(Input.Keys.A) && player.body.getLinearVelocity().x >= -MAX_SPEED)
+            player.body.applyLinearImpulse(new Vector2(-MOVE_IMPULSE, 0), player.body.getWorldCenter(), true);
     }
 
     private void handleMoveRight() {
-        if (Gdx.input.isKeyPressed(Input.Keys.D) && mario.body.getLinearVelocity().x <= MAX_SPEED)
-            mario.body.applyLinearImpulse(new Vector2(MOVE_IMPULSE, 0), mario.body.getWorldCenter(), true);
+        if (Gdx.input.isKeyPressed(Input.Keys.D) && player.body.getLinearVelocity().x <= MAX_SPEED)
+            player.body.applyLinearImpulse(new Vector2(MOVE_IMPULSE, 0), player.body.getWorldCenter(), true);
     }
 
 
@@ -124,9 +130,10 @@ public class PlayScreen implements Screen {
         handleInput(dt);
 
         world.step(TIME_STEP, VELOCITY_ITERATIONS, POSITION_ITERATIONS);
+        player.update(dt);
 
         // update mario's position
-        gameCam.position.x = mario.body.getPosition().x;
+        gameCam.position.x = player.body.getPosition().x;
 
         // update game cam to correct coordinates after changes
         gameCam.update();
@@ -138,11 +145,6 @@ public class PlayScreen implements Screen {
     @Override
     public void resize(int width, int height) {
         gamePort.update(width, height);
-    }
-
-    private void clearScreen() {
-        Gdx.gl.glClearColor(0, 0, 0, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
     }
 
     @Override
@@ -158,8 +160,18 @@ public class PlayScreen implements Screen {
         box2DRenderer.render(world, gameCam.combined);
 
         // draw the texture at the center of the screen
+        game.spriteBatch.setProjectionMatrix(gameCam.combined);
+        game.spriteBatch.begin();
+        player.draw(game.spriteBatch);
+        game.spriteBatch.end();
+
         game.spriteBatch.setProjectionMatrix(hud.stage.getCamera().combined);
         hud.stage.draw();
+    }
+
+    private void clearScreen() {
+        Gdx.gl.glClearColor(0, 0, 0, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
     }
 
     @Override

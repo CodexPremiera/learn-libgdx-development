@@ -6,6 +6,10 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.physics.box2d.*;
 import com.practice.mario_bros.MarioBros;
 
+import com.badlogic.gdx.physics.box2d.BodyDef;
+import com.badlogic.gdx.physics.box2d.FixtureDef;
+import com.badlogic.gdx.physics.box2d.PolygonShape;
+
 public abstract class InteractiveTileObject {
     protected World world;
     protected TiledMap map;

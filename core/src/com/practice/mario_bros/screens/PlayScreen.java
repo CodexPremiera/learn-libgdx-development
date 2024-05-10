@@ -9,18 +9,19 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.practice.mario_bros.MarioBros;
+import com.practice.mario_bros.Scenes.Hud;
 
 public class PlayScreen implements Screen {
     private MarioBros game;
-    Texture texture;
     private OrthographicCamera gameCam;
     private Viewport gamePort;
+    private Hud hud;
 
     public PlayScreen(MarioBros game) {
         this.game = game;
-        texture = new Texture("badlogic.jpg");
         gameCam = new OrthographicCamera();
-        gamePort = new FitViewport(800, 400, gameCam);
+        gamePort = new FitViewport(MarioBros.V_WIDTH, MarioBros.V_HEIGHT, gameCam);
+        hud = new Hud(game.batch);
     }
 
     @Override
@@ -40,10 +41,8 @@ public class PlayScreen implements Screen {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         // draw the texture at the center of the screen
-        game.batch.begin();
-        game.batch.setProjectionMatrix(gameCam.combined);
-        game.batch.draw(texture, 0, 0);
-        game.batch.end();
+        game.batch.setProjectionMatrix(hud.stage.getCamera().combined);
+        hud.stage.draw();
     }
 
     @Override
